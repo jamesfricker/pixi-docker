@@ -1,25 +1,25 @@
-# Windows Nano Server base image
-FROM mcr.microsoft.com/windows/nanoserver:ltsc2022 AS builder
+# Use Windows Server Core as the downloader stage (Nano Server lacks necessary tools)
+FROM mcr.microsoft.com/windows/servercore:ltsc2022 AS downloader
+
+# Define PIXI version as an argument
 ARG PIXI_VERSION=0.36.0
 
-# Download pixi using Windows Server Core since Nano doesn't have PowerShell
-FROM mcr.microsoft.com/windows/servercore:ltsc2022 AS downloader
-ARG PIXI_VERSION
-
-# Use CMD instead of PowerShell
+# Use CMD for compatibility with Nano Server
 SHELL ["cmd", "/S", "/C"]
 
-# Download pixi and verify in separate steps
-RUN curl.exe -L -o "C:/Windows/pixi.exe" https://github.com/prefix-dev/pixi/releases/download/v%PIXI_VERSION%/pixi-x86_64-pc-windows-msvc.exe
-RUN dir "C:/Windows/pixi.exe"
-RUN icacls "C:/Windows/pixi.exe" /grant Everyone:F
+# Download PIXI binary
+RUN curl.exe -L -o "C:\\Windows\\pixi.exe" https://github.com/prefix-dev/pixi/releases/download/v%PIXI_VERSION%/pixi-x86_64-pc-windows-msvc.exe && \
+    dir "C:\\Windows\\pixi.exe" && \
+    icacls "C:\\Windows\\pixi.exe" /grant Everyone:F
 
-# Final Nano Server image
+# Final stage using Windows Nano Server
 FROM mcr.microsoft.com/windows/nanoserver:ltsc2022
-COPY --from=downloader "C:/Windows/pixi.exe" "C:/Windows/pixi.exe
+
+# Copy the PIXI binary from the downloader stage
+COPY --from=downloader "C:/Windows/pixi.exe" "C:/Windows/System32/pixi.exe"
 
 # Set working directory
 WORKDIR C:\app
 
-# Set default command
-CMD ["pixi", "--version"] 
+# Set default command to verify PIXI
+CMD ["pixi", "--version"]

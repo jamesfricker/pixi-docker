@@ -145,7 +145,6 @@ jobs:
         docker run --rm ghcr.io/prefix-dev/pixi:${{ needs.version.outputs.new-version }}-${{ steps.image-variables.outputs.tag }} sh -c "mkdir /app && cd /app && pixi init && pixi add python && pixi run python --version"
     - name: Image digest
       run: echo ${{ steps.build.outputs.digest }}
-
   build-windows:
     needs: version
     runs-on: windows-latest
@@ -161,38 +160,38 @@ jobs:
           - dockerfile: Dockerfile.windows.nano
             tag: windows-nano
     steps:
-    - name: Checkout source
-      uses: actions/checkout@v4
+      - name: Checkout source
+        uses: actions/checkout@v4
 
-    - name: Login to GHCR
-      uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567
-      with:
-        registry: ghcr.io
-        username: ${{ github.actor }}
-        password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Login to GHCR
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Build and push Windows image
-      shell: powershell
-      env:
-        TAG: ${{ needs.version.outputs.new-version }}-${{ matrix.tag }}
-      run: |
-        docker build `
-          --file ${{ matrix.dockerfile }} `
-          --tag ghcr.io/prefix-dev/pixi:${{ matrix.tag }} `
-          --tag ghcr.io/prefix-dev/pixi:$env:TAG `
-          .
-        
-        if ("${{ needs.version.outputs.push }}" -eq "true") {
-          docker push ghcr.io/prefix-dev/pixi:${{ matrix.tag }}
-          docker push ghcr.io/prefix-dev/pixi:$env:TAG
-        }
+      - name: Build and push Windows image
+        shell: powershell
+        env:
+          TAG: ${{ needs.version.outputs.new-version }}-${{ matrix.tag }}
+        run: |
+          docker build `
+            --file ${{ matrix.dockerfile }} `
+            --tag ghcr.io/prefix-dev/pixi:${{ matrix.tag }} `
+            --tag ghcr.io/prefix-dev/pixi:$env:TAG `
+            .
+          
+          if (${{ needs.version.outputs.push }} -eq "true") {
+            docker push ghcr.io/prefix-dev/pixi:${{ matrix.tag }}
+            docker push ghcr.io/prefix-dev/pixi:$env:TAG
+          }
 
-    - name: Run tests
-      if: needs.version.outputs.push == 'true'
-      shell: cmd
-      run: |
-        docker run --rm ghcr.io/prefix-dev/pixi:${{ needs.version.outputs.new-version }}-${{ matrix.tag }} pixi --version
-        docker run --rm ghcr.io/prefix-dev/pixi:${{ needs.version.outputs.new-version }}-${{ matrix.tag }} cmd /C "mkdir app && cd app && pixi init && pixi add python && pixi run python --version"
+      - name: Run tests
+        if: needs.version.outputs.push == 'true'
+        shell: cmd
+        run: |
+          docker run --rm ghcr.io/prefix-dev/pixi:${{ needs.version.outputs.new-version }}-${{ matrix.tag }} pixi --version
+          docker run --rm ghcr.io/prefix-dev/pixi:${{ needs.version.outputs.new-version }}-${{ matrix.tag }} cmd /C "mkdir app && cd app && pixi init && pixi add python && pixi run python --version"
 
   release:
     needs: [version, build, build-windows]
