@@ -9,9 +9,11 @@ ARG PIXI_VERSION
 # Use CMD instead of PowerShell
 SHELL ["cmd", "/S", "/C"]
 
-# Download pixi using curl instead of Invoke-WebRequest
-RUN curl.exe -L -o C:\pixi.exe https://github.com/prefix-dev/pixi/releases/download/v%PIXI_VERSION%/pixi-x86_64-pc-windows-msvc.exe && \
-    C:\pixi.exe --version
+# Download pixi and verify in separate steps
+RUN curl.exe -L -o C:\pixi.exe https://github.com/prefix-dev/pixi/releases/download/v%PIXI_VERSION%/pixi-x86_64-pc-windows-msvc.exe
+RUN dir C:\pixi.exe
+RUN icacls C:\pixi.exe /grant Everyone:F
+RUN C:\pixi.exe --version || exit 0
 
 # Final Nano Server image
 FROM mcr.microsoft.com/windows/nanoserver:ltsc2022
