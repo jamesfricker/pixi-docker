@@ -10,14 +10,13 @@ ARG PIXI_VERSION
 SHELL ["cmd", "/S", "/C"]
 
 # Download pixi and verify in separate steps
-RUN curl.exe -L -o C:\pixi.exe https://github.com/prefix-dev/pixi/releases/download/v%PIXI_VERSION%/pixi-x86_64-pc-windows-msvc.exe
-RUN dir C:\pixi.exe
-RUN icacls C:\pixi.exe /grant Everyone:F
-RUN C:\pixi.exe --version || exit 0
+RUN curl.exe -L -o "C:/Windows/pixi.exe" https://github.com/prefix-dev/pixi/releases/download/v%PIXI_VERSION%/pixi-x86_64-pc-windows-msvc.exe
+RUN dir "C:/Windows/pixi.exe"
+RUN icacls "C:/Windows/pixi.exe" /grant Everyone:F
 
 # Final Nano Server image
 FROM mcr.microsoft.com/windows/nanoserver:ltsc2022
-COPY --from=downloader C:\pixi.exe C:\Windows\pixi.exe
+COPY --from=downloader "C:/Windows/pixi.exe" "C:/Windows/pixi.exe
 
 # Set working directory
 WORKDIR C:\app

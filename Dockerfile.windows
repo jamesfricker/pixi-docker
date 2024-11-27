@@ -2,20 +2,21 @@
 FROM mcr.microsoft.com/windows/servercore:ltsc2022 AS builder
 ARG PIXI_VERSION=0.36.0
 
-# Switch to CMD shell for more reliable file operations
+# Switch to CMD shell
 SHELL ["cmd", "/S", "/C"]
 
-# Download pixi using curl and verify
-RUN curl.exe -L -o "C:\pixi.exe" "https://github.com/prefix-dev/pixi/releases/download/v%PIXI_VERSION%/pixi-x86_64-pc-windows-msvc.exe" && ^
-    dir "C:\pixi.exe" && ^
-    icacls "C:\pixi.exe" /grant Everyone:F && ^
-    "C:\pixi.exe" --version
+# Download and verify in separate steps
+RUN curl.exe -L -o "C:/Windows/pixi.exe" "https://github.com/prefix-dev/pixi/releases/download/v%PIXI_VERSION%/pixi-x86_64-pc-windows-msvc.exe"
+RUN type nul && dir "C:/Windows/pixi.exe"
+RUN icacls "C:/Windows/pixi.exe" /grant Everyone:F
 
+# Final stage
 FROM mcr.microsoft.com/windows/servercore:ltsc2022
-COPY --from=builder C:\pixi.exe C:\Windows\System32\pixi.exe
+COPY --from=builder ["C:/Windows/pixi.exe", "C:/Windows/System32/pixi.exe"]
+RUN icacls "C:/Windows/System32/pixi.exe" /grant Everyone:F
 
 # Set working directory
 WORKDIR C:\app
 
 # Set default command
-CMD ["cmd", "/C", "pixi --version"] 
+CMD ["pixi", "--version"] 
