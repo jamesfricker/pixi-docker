@@ -5,9 +5,12 @@ ARG PIXI_VERSION=0.36.0
 # Download pixi using Windows Server Core since Nano doesn't have PowerShell
 FROM mcr.microsoft.com/windows/servercore:ltsc2022 AS downloader
 ARG PIXI_VERSION
-SHELL ["powershell", "-Command", "$ErrorActionPreference = 'Stop'; $ProgressPreference = 'SilentlyContinue';"]
-RUN Invoke-WebRequest -Uri "https://github.com/prefix-dev/pixi/releases/download/v${env:PIXI_VERSION}/pixi-x86_64-pc-windows-msvc.exe" -OutFile C:\pixi.exe; \
-    Get-FileHash C:\pixi.exe; \
+
+# Use CMD instead of PowerShell
+SHELL ["cmd", "/S", "/C"]
+
+# Download pixi using curl instead of Invoke-WebRequest
+RUN curl.exe -L -o C:\pixi.exe https://github.com/prefix-dev/pixi/releases/download/v%PIXI_VERSION%/pixi-x86_64-pc-windows-msvc.exe && \
     C:\pixi.exe --version
 
 # Final Nano Server image
