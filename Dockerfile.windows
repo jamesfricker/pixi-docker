@@ -1,34 +1,13 @@
-# Use Windows Server Core as the base image for the builder stage
-FROM mcr.microsoft.com/windows/servercore:ltsc2022 AS builder
-
-# Define the PIXI version as a build argument
+# Windows-based Dockerfile
 ARG PIXI_VERSION=0.36.0
+ARG BASE_IMAGE=mcr.microsoft.com/windows/servercore:ltsc2022
 
-# Use PowerShell for better scripting support
-SHELL ["powershell", "-Command"]
+FROM --platform=$TARGETPLATFORM mcr.microsoft.com/windows/servercore:ltsc2022 AS builder
+ARG PIXI_VERSION
+SHELL ["powershell", "-Command", "$ErrorActionPreference = 'Stop'; $ProgressPreference = 'SilentlyContinue';"]
 
-# Download PIXI executable
-RUN Invoke-WebRequest -Uri "https://github.com/prefix-dev/pixi/releases/download/v$env:PIXI_VERSION/pixi-x86_64-pc-windows-msvc.exe" -OutFile "C:\\Windows\\pixi.exe"; \
-    if (!(Test-Path -Path 'C:\\Windows\\pixi.exe')) { throw 'PIXI download failed'; }
+RUN Invoke-WebRequest -Uri "https://github.com/prefix-dev/pixi/releases/download/v${env:PIXI_VERSION}/pixi-x86_64-pc-windows-msvc.exe" -OutFile C:\pixi.exe
+RUN C:\pixi.exe --version
 
-# Verify the file exists and set permissions
-RUN icacls "C:\\Windows\\pixi.exe" /grant Everyone:F
-
-# Final stage
-FROM mcr.microsoft.com/windows/servercore:ltsc2022
-
-# Copy the PIXI executable from the builder stage to the final image
-COPY --from=builder "C:/Windows/pixi.exe" "C:/Windows/System32/pixi.exe"
-
-# Use PowerShell in the final stage as well
-SHELL ["powershell", "-Command"]
-
-# Verify the copied file and set permissions
-RUN if (!(Test-Path -Path 'C:\\Windows\\System32\\pixi.exe')) { throw 'PIXI copy failed'; } \
-    icacls "C:\\Windows\\System32\\pixi.exe" /grant Everyone:F
-
-# Set working directory
-WORKDIR C:\app
-
-# Default command to check the PIXI version
-CMD ["pixi", "--version"]
+FROM --platform=$TARGETPLATFORM $BASE_IMAGE
+COPY --from=builder C:\pixi.exe C:\Windows\System32\pixi.exe
