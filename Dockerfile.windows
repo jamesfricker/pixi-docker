@@ -1,13 +1,14 @@
-# Windows-based Dockerfile
-ARG PIXI_VERSION=0.36.0
-ARG BASE_IMAGE=mcr.microsoft.com/windows/servercore:ltsc2022
+# escape=`
 
-FROM --platform=$TARGETPLATFORM mcr.microsoft.com/windows/servercore:ltsc2022 AS builder
+ARG BASE_IMAGE
+FROM ${BASE_IMAGE}
+
 ARG PIXI_VERSION
+
 SHELL ["powershell", "-Command", "$ErrorActionPreference = 'Stop'; $ProgressPreference = 'SilentlyContinue';"]
 
-RUN Invoke-WebRequest -Uri "https://github.com/prefix-dev/pixi/releases/download/v${env:PIXI_VERSION}/pixi-x86_64-pc-windows-msvc.exe" -OutFile C:\pixi.exe
-RUN C:\pixi.exe --version
+RUN Invoke-WebRequest -Uri "https://github.com/prefix-dev/pixi/releases/download/v${env:PIXI_VERSION}/pixi-x86_64-pc-windows-msvc.exe" -OutFile C:\Windows\System32\pixi.exe
 
-FROM --platform=$TARGETPLATFORM $BASE_IMAGE
-COPY --from=builder C:\pixi.exe C:\Windows\System32\pixi.exe
+RUN pixi --version
+
+ENTRYPOINT ["pixi"]
