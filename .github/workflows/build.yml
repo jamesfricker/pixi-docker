@@ -146,7 +146,7 @@ jobs:
     - name: Image digest
       run: echo ${{ steps.build.outputs.digest }}
 
- build-windows:
+  build-windows:
     needs: version
     runs-on: windows-latest
     permissions:
