@@ -11,4 +11,3 @@ RUN Invoke-WebRequest -Uri "https://github.com/prefix-dev/pixi/releases/download
 
 RUN pixi --version
 
-ENTRYPOINT ["pixi"]
