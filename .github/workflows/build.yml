@@ -145,7 +145,8 @@ jobs:
         docker run --rm ghcr.io/prefix-dev/pixi:${{ needs.version.outputs.new-version }}-${{ steps.image-variables.outputs.tag }} sh -c "mkdir /app && cd /app && pixi init && pixi add python && pixi run python --version"
     - name: Image digest
       run: echo ${{ steps.build.outputs.digest }}
-  build-windows:
+
+ build-windows:
     needs: version
     runs-on: windows-latest
     permissions:
@@ -161,18 +162,23 @@ jobs:
     - name: Checkout source
       uses: actions/checkout@v4
 
+    - name: Set up Docker
+      uses: docker/setup-buildx-action@v3
+      with:
+        version: v0.9.1
+        platforms: windows/amd64
+
     - name: Set image variables
       id: image-variables
       run: |
         $baseImage = "${{ matrix.base-image }}"
         $tag = if ($baseImage -like "*nanoserver*") { "nanoserver" } else { "servercore" }
         echo "tag=$tag" >> $env:GITHUB_OUTPUT
-        echo "platforms=windows/amd64" >> $env:GITHUB_OUTPUT
       shell: pwsh
 
     - name: Get docker metadata
       id: metadata
-      uses: docker/metadata-action@8e5442c4ef9f78752691e2d8f8d19755c6f78e81
+      uses: docker/metadata-action@v5
       with:
         images: ghcr.io/prefix-dev/pixi
         flavor: latest=false
@@ -180,42 +186,46 @@ jobs:
           type=raw,value=${{ steps.image-variables.outputs.tag }},priority=900
           type=semver,pattern={{version}}-${{ steps.image-variables.outputs.tag }},value=${{ needs.version.outputs.new-version }},priority=500
 
-    - name: Setup docker buildx
-      uses: docker/setup-buildx-action@c47758b77c9736f4b2ef4073d4d51994fabfe349
-
     - name: Login to GHCR
-      uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567
+      uses: docker/login-action@v3
       with:
         registry: ghcr.io
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Build Docker images
-      id: build
-      uses: docker/build-push-action@4f58ea79222b3b9dc2c8bbdd6debcef730109a75
-      with:
-        provenance: false
-        platforms: ${{ steps.image-variables.outputs.platforms }}
-        push: ${{ needs.version.outputs.push == 'true' }}
-        build-args: |
-          BASE_IMAGE=${{ matrix.base-image }}
-        tags: ${{ steps.metadata.outputs.tags }}
-        labels: ${{ steps.metadata.outputs.labels }}
-        file: Dockerfile.windows
-
-    - uses: actions/upload-artifact@v4
-      with:
-        name: ${{ steps.image-variables.outputs.tag }}
-        path: ${{ steps.metadata.outputs.bake-file }}
+    - name: Build and push Docker image
+      env:
+        PIXI_VERSION: ${{ needs.version.outputs.new-version }}
+      run: |
+        $baseImage = "${{ matrix.base-image }}"
+        $tag = "${{ steps.image-variables.outputs.tag }}"
+        
+        # Build the image
+        docker build `
+          --build-arg PIXI_VERSION=$env:PIXI_VERSION `
+          --build-arg BASE_IMAGE=$baseImage `
+          -t ghcr.io/prefix-dev/pixi:$env:PIXI_VERSION-$tag `
+          -f Dockerfile.windows .
+        
+        # Push the image if this is a version change on the main branch
+        if ('${{ needs.version.outputs.push }}' -eq 'true') {
+          docker push ghcr.io/prefix-dev/pixi:$env:PIXI_VERSION-$tag
+        }
+      shell: pwsh
 
     - name: Run tests
       if: needs.version.outputs.push == 'true'
       run: |
-        docker run --rm ghcr.io/prefix-dev/pixi:${{ needs.version.outputs.new-version }}-${{ steps.image-variables.outputs.tag }} pixi --version
-        docker run --rm ghcr.io/prefix-dev/pixi:${{ needs.version.outputs.new-version }}-${{ steps.image-variables.outputs.tag }} powershell -Command "mkdir C:\app; cd C:\app; pixi init; pixi add python; pixi run python --version"
+        $tag = "${{ steps.image-variables.outputs.tag }}"
+        $version = "${{ needs.version.outputs.new-version }}"
+        
+        docker run --rm ghcr.io/prefix-dev/pixi:${version}-${tag} pixi --version
+        docker run --rm ghcr.io/prefix-dev/pixi:${version}-${tag} powershell -Command "mkdir C:\app; cd C:\app; pixi init; pixi add python; pixi run python --version"
+      shell: pwsh
 
     - name: Image digest
-      run: echo ${{ steps.build.outputs.digest }}
+      run: docker inspect ghcr.io/prefix-dev/pixi:${{ needs.version.outputs.new-version }}-${{ steps.image-variables.outputs.tag }} --format '{{.RepoDigests}}'
+      shell: pwsh
 
   release:
     needs: [version, build, build-windows]
