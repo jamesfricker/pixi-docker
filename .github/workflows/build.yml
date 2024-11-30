@@ -197,6 +197,24 @@ jobs:
           }
         shell: pwsh
 
+      - name: Test Python installation
+        run: |
+          $tag = "${{ steps.image-variables.outputs.tag }}"
+          $version = "${{ needs.version.outputs.new-version }}"
+          
+          # Run a container to test Python installation
+          docker run --rm ghcr.io/prefix-dev/pixi:${version}-${tag} powershell -Command "
+            mkdir C:\app; 
+            cd C:\app; 
+            pixi init; 
+            pixi add python; 
+            pixi run python --version;
+            if (`$LASTEXITCODE -ne 0) { 
+              Write-Error 'Python installation test failed'; 
+              exit 1 
+            }"
+        shell: pwsh
+
       - name: Run tests
         if: needs.version.outputs.push == 'true'
         run: |
