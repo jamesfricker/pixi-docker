@@ -40,27 +40,27 @@ jobs:
       matrix:
         base-image:
          - debian:bookworm-slim # 12
-         - debian:bookworm # 12
-         - debian:bullseye-slim # 11
-         - debian:bullseye # 11
-         - ubuntu:noble # 24.04
-         - ubuntu:mantic # 23.10
-         - ubuntu:jammy # 22.04
-         - ubuntu:focal # 20.04
-         - nvidia/cuda:12.3.1-base-ubuntu22.04
-         - nvidia/cuda:12.3.1-base-ubuntu20.04
-         - nvidia/cuda:12.2.2-base-ubuntu22.04
-         - nvidia/cuda:12.2.2-base-ubuntu20.04
-         - nvidia/cuda:12.1.1-base-ubuntu22.04
-         - nvidia/cuda:12.1.1-base-ubuntu20.04
-         - nvidia/cuda:11.8.0-base-ubuntu22.04
-         - nvidia/cuda:11.8.0-base-ubuntu20.04
-         - nvidia/cuda:11.7.1-base-ubuntu22.04
-         - nvidia/cuda:11.7.1-base-ubuntu20.04
-         - nvidia/cuda:11.6.2-base-ubuntu20.04
-         - nvidia/cuda:11.4.3-base-ubuntu20.04
-         - nvidia/cuda:11.3.1-base-ubuntu20.04
-         - nvidia/cuda:11.2.2-base-ubuntu20.04
+        #  - debian:bookworm # 12
+        #  - debian:bullseye-slim # 11
+        #  - debian:bullseye # 11
+        #  - ubuntu:noble # 24.04
+        #  - ubuntu:mantic # 23.10
+        #  - ubuntu:jammy # 22.04
+        #  - ubuntu:focal # 20.04
+        #  - nvidia/cuda:12.3.1-base-ubuntu22.04
+        #  - nvidia/cuda:12.3.1-base-ubuntu20.04
+        #  - nvidia/cuda:12.2.2-base-ubuntu22.04
+        #  - nvidia/cuda:12.2.2-base-ubuntu20.04
+        #  - nvidia/cuda:12.1.1-base-ubuntu22.04
+        #  - nvidia/cuda:12.1.1-base-ubuntu20.04
+        #  - nvidia/cuda:11.8.0-base-ubuntu22.04
+        #  - nvidia/cuda:11.8.0-base-ubuntu20.04
+        #  - nvidia/cuda:11.7.1-base-ubuntu22.04
+        #  - nvidia/cuda:11.7.1-base-ubuntu20.04
+        #  - nvidia/cuda:11.6.2-base-ubuntu20.04
+        #  - nvidia/cuda:11.4.3-base-ubuntu20.04
+        #  - nvidia/cuda:11.3.1-base-ubuntu20.04
+        #  - nvidia/cuda:11.2.2-base-ubuntu20.04
     steps:
     - name: Checkout source
       uses: actions/checkout@v4
@@ -146,8 +146,85 @@ jobs:
     - name: Image digest
       run: echo ${{ steps.build.outputs.digest }}
 
+  build-windows:
+    needs: version
+    runs-on: windows-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        base-image:
+          - mcr.microsoft.com/windows/servercore:ltsc2022
+          - mcr.microsoft.com/windows/nanoserver:ltsc2022
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set image variables
+        id: image-variables
+        run: |
+          $baseImage = "${{ matrix.base-image }}"
+          $tag = if ($baseImage -like "*nanoserver*") { "nanoserver" } else { "servercore" }
+          echo "tag=$tag" >> $env:GITHUB_OUTPUT
+        shell: pwsh
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push Docker image
+        env:
+          PIXI_VERSION: ${{ needs.version.outputs.new-version }}
+        run: |
+          $baseImage = "${{ matrix.base-image }}"
+          $tag = "${{ steps.image-variables.outputs.tag }}"
+
+          # Build the image
+          docker build `
+            --build-arg PIXI_VERSION=$env:PIXI_VERSION `
+            --build-arg BASE_IMAGE=$baseImage `
+            -t ghcr.io/prefix-dev/pixi:$env:PIXI_VERSION-$tag `
+            -f Dockerfile.windows .
+        shell: pwsh
+
+
+      - name: Test image
+        run: |
+          $tag = "${{ steps.image-variables.outputs.tag }}"
+          $version = "${{ needs.version.outputs.new-version }}"
+
+          # Test Pixi version
+          docker run --rm ghcr.io/prefix-dev/pixi:${version}-${tag} pixi --version
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "Pixi version check failed"
+            exit 1
+          }
+
+          # Test Python installation
+          docker run --rm ghcr.io/prefix-dev/pixi:${version}-${tag} `
+            cmd /c "echo LOCALAPPDATA: %LOCALAPPDATA% && mkdir C:\app && cd C:\app && pixi init && pixi add python && pixi run python --version"
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "Python installation and test failed"
+            exit 1
+          }
+        shell: pwsh
+
+      - name: push image
+        if: needs.version.outputs.push == 'true'
+        run: |
+          docker push ghcr.io/prefix-dev/pixi:$env:PIXI_VERSION-$tag
+
+      - name: Image digest
+        run: docker inspect ghcr.io/prefix-dev/pixi:${{ needs.version.outputs.new-version }}-${{ steps.image-variables.outputs.tag }} --format '{{.RepoDigests}}'
+        shell: pwsh
+
   release:
-    needs: [version, build]
+    needs: [version, build, build-windows]
     runs-on: ubuntu-22.04
     permissions:
       contents: write
