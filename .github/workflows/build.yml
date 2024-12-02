@@ -207,7 +207,7 @@ jobs:
 
           # Test Python installation
           docker run --rm ghcr.io/prefix-dev/pixi:${version}-${tag} `
-            cmd /c "mkdir C:\app && cd C:\app && pixi init && pixi add python && pixi run python --version"
+            cmd /c "echo LOCALAPPDATA: %LOCALAPPDATA% && mkdir C:\app && cd C:\app && pixi init && pixi add python && pixi run python --version"
           if ($LASTEXITCODE -ne 0) {
             Write-Error "Python installation and test failed"
             exit 1
