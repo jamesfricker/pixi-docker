@@ -11,6 +11,5 @@ RUN mkdir C:\Pixi
 # Download Pixi
 ADD https://github.com/prefix-dev/pixi/releases/download/v${PIXI_VERSION}/pixi-x86_64-pc-windows-msvc.exe C:\Pixi\pixi.exe
 
-# Add Pixi to PATH
-RUN setx /M PATH "%PATH%;C:\Pixi"
-
+# Set PATH environment variable
+ENV PATH="C:\Pixi;${PATH}"

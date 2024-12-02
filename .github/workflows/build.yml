@@ -199,7 +199,7 @@ jobs:
           $version = "${{ needs.version.outputs.new-version }}"
 
           # Test Pixi version
-          docker run --rm ghcr.io/prefix-dev/pixi:${version}-${tag} --version
+          docker run --rm ghcr.io/prefix-dev/pixi:${version}-${tag} pixi --version
           if ($LASTEXITCODE -ne 0) {
             Write-Error "Pixi version check failed"
             exit 1
