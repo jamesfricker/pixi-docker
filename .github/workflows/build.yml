@@ -190,21 +190,28 @@ jobs:
             --build-arg BASE_IMAGE=$baseImage `
             -t ghcr.io/prefix-dev/pixi:$env:PIXI_VERSION-$tag `
             -f Dockerfile.windows .
-
-          # Push the image if this is a version change on the main branch
-          if ('${{ needs.version.outputs.push }}' -eq 'true') {
-            docker push ghcr.io/prefix-dev/pixi:$env:PIXI_VERSION-$tag
-          }
         shell: pwsh
 
 
-      - name: Run tests
+      - name: Test image
         run: |
           $tag = "${{ steps.image-variables.outputs.tag }}"
           $version = "${{ needs.version.outputs.new-version }}"
 
-          docker run --rm ghcr.io/prefix-dev/pixi:${version}-${tag} pixi --version
-          docker run --rm ghcr.io/prefix-dev/pixi:${version}-${tag} powershell -Command "mkdir C:\app; cd C:\app; pixi init; pixi add python; pixi run python --version"
+          # Test Pixi version
+          docker run --rm ghcr.io/prefix-dev/pixi:${version}-${tag} --version
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "Pixi version check failed"
+            exit 1
+          }
+
+          # Test Python installation
+          docker run --rm ghcr.io/prefix-dev/pixi:${version}-${tag} `
+            cmd /c "mkdir C:\app && cd C:\app && pixi init && pixi add python && pixi run python --version"
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "Python installation and test failed"
+            exit 1
+          }
         shell: pwsh
 
       - name: push image
