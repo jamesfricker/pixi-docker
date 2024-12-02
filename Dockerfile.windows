@@ -14,9 +14,3 @@ ADD https://github.com/prefix-dev/pixi/releases/download/v${PIXI_VERSION}/pixi-x
 # Add Pixi to PATH
 RUN setx /M PATH "%PATH%;C:\Pixi"
 
-# Verify Pixi installation
-RUN pixi --version
-
-WORKDIR C:\
-
-ENTRYPOINT ["pixi"]
